@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.androidApplication)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -39,4 +40,8 @@ dependencies {
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
     annotationProcessor(libs.lombok)
+    implementation(platform(libs.firebase.bom))
+    //noinspection UseTomlInstead
+    implementation("com.google.firebase:firebase-auth")
+    implementation(libs.play.services.auth)
 }

@@ -2,4 +2,5 @@
 plugins {
     alias(libs.plugins.androidApplication) apply false
     id("io.franzbecker.gradle-lombok") version "5.0.0"
+    id("com.google.gms.google-services") version "4.4.1" apply false
 }

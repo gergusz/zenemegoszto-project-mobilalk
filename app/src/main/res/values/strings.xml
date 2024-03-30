@@ -1,3 +1,17 @@
 <resources>
     <string name="app_name">MusicShare</string>
+    <string name="emailAddress">Email címed</string>
+    <string name="password">Jelszavad</string>
+    <string name="login">Bejelentkezés</string>
+    <string name="loginWithGoogle">Bejelentkezés Google fiókkal</string>
+    <string name="loginAnonymous">Bejelentkezés Vendég hallgatóként</string>
+    <string name="register">Regisztráció</string>
+    <string name="noAccount">Nincsen még fiókod?</string>
+    <string name="username">Felhasználóneved</string>
+    <string name="passwordAgain">Jelszavad mégegyszer</string>
+    <string name="musician">Zenész</string>
+    <string name="listener">Hallgató</string>
+    <string name="alreadyHaveAccount"><u>Van már fiókod?</u></string>
+    <string name="anonymousUser">Vendég felhasználó!</string>
+    <string name="dummy_text">Dummy Text</string>
 </resources>
