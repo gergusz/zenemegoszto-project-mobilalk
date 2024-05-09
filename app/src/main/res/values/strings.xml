@@ -14,4 +14,20 @@
     <string name="alreadyHaveAccount"><u>Van már fiókod?</u></string>
     <string name="anonymousUser">Vendég felhasználó!</string>
     <string name="dummy_text">Dummy Text</string>
+    <string name="pressBackAgain">A kilépéshez mégegyszer nyomd meg a vissza gombot!</string>
+    <string name="song_title">Song Title</string>
+    <string name="song_artist">Song Artist</string>
+    <string name="song_duration">99:59</string>
+    <string name="musicUpload">Zene feltöltése</string>
+    <string name="logout">Kilépés</string>
+    <string name="chooseSong">Válassz ki egy zenét!</string>
+    <string name="chooseText">Tallózás…</string>
+    <string name="upload">Feltöltés</string>
+    <string name="musicArtist">Zene előadója</string>
+    <string name="artistSameAsUploader">Én vagyok az előadó</string>
+    <string name="albumTitle">Album címe</string>
+    <string name="genre">Zene műfaja</string>
+    <string name="musicTitle">Zene címe</string>
+    <string name="startOfSong">00:00</string>
+
 </resources>

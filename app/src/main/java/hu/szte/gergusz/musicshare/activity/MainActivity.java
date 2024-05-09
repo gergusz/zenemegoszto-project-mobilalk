@@ -1,4 +1,4 @@
-package hu.szte.gergusz.musicshare;
+package hu.szte.gergusz.musicshare.activity;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -14,6 +14,8 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.firebase.auth.FirebaseAuth;
+
+import hu.szte.gergusz.musicshare.R;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -42,9 +44,23 @@ public class MainActivity extends AppCompatActivity {
         passwordEditText = findViewById(R.id.passwordEditText);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (auth.getCurrentUser() != null) {
+            Intent intent = new Intent(this, MusicShareActivity.class);
+            startActivity(intent);
+        }
+    }
+
     public void onLogin(View view) {
         String email = emailEditText.getText().toString();
         String password = passwordEditText.getText().toString();
+
+        if (email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "Az email cím és a jelszó mezők kitöltése kötelező!", Toast.LENGTH_LONG).show();
+            return;
+        }
 
         auth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
@@ -53,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
                         Intent intent = new Intent(this, MusicShareActivity.class);
                         startActivity(intent);
                     } else {
-                        Toast.makeText(this, "Hibás email cím vagy jelszó!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Hibás email cím vagy jelszó!", Toast.LENGTH_LONG).show();
                         Log.w(LOG_TAG, "signInWithEmail:failure", task.getException());
                     }
                 });
@@ -73,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
                         Intent intent = new Intent(this, MusicShareActivity.class);
                         startActivity(intent);
                     } else {
-                        Toast.makeText(this, "Sikertelen bejelentkezés!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Sikertelen bejelentkezés!", Toast.LENGTH_LONG).show();
                         Log.w(LOG_TAG, "signInAnonymously:failure", task.getException());
                     }
                 });

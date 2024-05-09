@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="music_genres">
+        <item>Pop</item>
+        <item>Rock</item>
+        <item>Hip Hop</item>
+        <item>Elektronikus</item>
+        <item>Jazz</item>
+        <item>Klasszikus</item>
+        <item>R&amp;B</item>
+        <item>Country</item>
+        <item>Reggae</item>
+        <item>Metál</item>
+        <item>Blues</item>
+        <item>Indie</item>
+        <item>Folk</item>
+        <item>Punk</item>
+        <item>Alternatív</item>
+        <item>Egyéb…</item>
+    </string-array>
+</resources>
