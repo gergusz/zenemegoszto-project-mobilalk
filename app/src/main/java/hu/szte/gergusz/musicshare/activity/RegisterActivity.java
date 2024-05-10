@@ -86,7 +86,7 @@ public class RegisterActivity extends AppCompatActivity {
             if (task.isSuccessful()) {
                 Log.d(LOG_TAG, "createUserWithEmail:success");
                 Objects.requireNonNull(auth.getCurrentUser()).updateProfile(new UserProfileChangeRequest.Builder().setDisplayName(username).build());
-                userDataCollection.document(auth.getCurrentUser().getUid()).set(new UserData(listener));
+                userDataCollection.document(auth.getCurrentUser().getUid()).set(new UserData(username, listener));
                 finish();
             } else {
                 Log.d(LOG_TAG, "createUserWithEmail:failure", task.getException());

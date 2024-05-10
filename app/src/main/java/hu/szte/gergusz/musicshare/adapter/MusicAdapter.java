@@ -1,6 +1,9 @@
 package hu.szte.gergusz.musicshare.adapter;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.drawable.BitmapDrawable;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,14 +14,17 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.palette.graphics.Palette;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.color.utilities.CorePalette;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 import hu.szte.gergusz.musicshare.R;
+import hu.szte.gergusz.musicshare.activity.MusicShareActivity;
 import hu.szte.gergusz.musicshare.model.Music;
 
 public class MusicAdapter extends RecyclerView.Adapter<MusicAdapter.MusicViewHolder> implements Filterable {
@@ -86,10 +92,7 @@ public class MusicAdapter extends RecyclerView.Adapter<MusicAdapter.MusicViewHol
         };
     }
 
-
-
-
-    public class MusicViewHolder extends RecyclerView.ViewHolder {
+    public static class MusicViewHolder extends RecyclerView.ViewHolder {
 
         private final ImageView albumArt;
         private final TextView songTitle;
@@ -106,10 +109,19 @@ public class MusicAdapter extends RecyclerView.Adapter<MusicAdapter.MusicViewHol
 
         }
 
-        void bindTo(Music music) {
+        @SuppressLint("DefaultLocale")
+        void bindTo(@NonNull Music music) {
             songTitle.setText(music.getTitle());
             songArtist.setText(music.getArtist());
-            songDuration.setText(String.valueOf(music.getLength()));
+            songDuration.setText(String.format("%02d:%02d", music.getLength() / 60000, (music.getLength() % 60000) / 1000));
+            if (music.getAlbumArtUri() != null) {
+                Glide.with(itemView.getContext()).load(music.getAlbumArtUri()).into(albumArt);
+            } else {
+                albumArt.setImageResource(R.drawable.baseline_album_64);
+            }
+            itemView.setOnClickListener(view -> {
+                ((MusicShareActivity) view.getContext()).showMusicInfo(music);
+            });
         }
     }
 }

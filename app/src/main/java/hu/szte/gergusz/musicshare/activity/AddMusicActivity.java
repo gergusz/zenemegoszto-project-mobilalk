@@ -14,13 +14,11 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.TranslateAnimation;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.CheckBox;
-import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -30,19 +28,22 @@ import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.content.res.AppCompatResources;
-import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-import androidx.loader.content.CursorLoader;
 
+import com.google.android.gms.tasks.Tasks;
+import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.UploadTask;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -52,27 +53,27 @@ import java.util.Objects;
 import hu.szte.gergusz.musicshare.R;
 import hu.szte.gergusz.musicshare.model.Music;
 
-public class AddMusicActivity extends BaseActionBarActivity {
-
+public class AddMusicActivity extends AppCompatActivity {
     private static final String TAG = "AddMusicActivity";
-    FirebaseAuth auth;
-    FirebaseStorage storage;
-    TextView chosenSongPath;
-    HorizontalScrollView chosenSongPathScrollView;
-    ImageView chosenSongAlbumArt;
-    TextInputEditText titleEditText;
-    TextInputEditText artistEditText;
-    CheckBox artistSameAsUploader;
-    TextInputEditText albumEditText;
-    AutoCompleteTextView genreAutoComplete;
-    MediaPlayer mediaPlayer;
-    Uri selectedSongUri;
-    MaterialButton playPauseButton;
-    TextView currentPos;
-    TextView totalLength;
-    SeekBar seekBar;
-    List<String> genres;
-    Music music;
+    private FirebaseAuth auth;
+    private FirebaseUser user;
+    private FirebaseStorage storage;
+    private TextView chosenSongPath;
+    private ImageView chosenSongAlbumArt;
+    private TextInputEditText titleEditText;
+    private TextInputEditText artistEditText;
+    private CheckBox artistSameAsUploader;
+    private TextInputEditText albumEditText;
+    private AutoCompleteTextView genreAutoComplete;
+    private MediaPlayer mediaPlayer;
+    private Uri selectedSongUri;
+    private MaterialButton playPauseButton;
+    private TextView currentPos;
+    private TextView totalLength;
+    private SeekBar seekBar;
+    private List<String> genres;
+    private Music music;
+    private int total;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,11 +86,16 @@ public class AddMusicActivity extends BaseActionBarActivity {
             return insets;
         });
 
-        Toolbar myToolbar = findViewById(R.id.my_toolbar);
-        setSupportActionBar(myToolbar);
-        Objects.requireNonNull(getSupportActionBar()).setTitle("Music Share");
-
         auth = FirebaseAuth.getInstance();
+        user = auth.getCurrentUser();
+
+        MaterialToolbar myToolbar = findViewById(R.id.my_toolbar);
+        setSupportActionBar(myToolbar);
+        Objects.requireNonNull(getSupportActionBar()).setDisplayHomeAsUpEnabled(true);
+        getSupportActionBar().setHomeAsUpIndicator(R.drawable.baseline_arrow_back_64);
+        myToolbar.setNavigationOnClickListener(v -> finish());
+        getSupportActionBar().setTitle("Zene feltöltése...");
+
 
         if (auth.getCurrentUser() == null || auth.getCurrentUser().isAnonymous()) {
             finish();
@@ -99,7 +105,6 @@ public class AddMusicActivity extends BaseActionBarActivity {
 
         chosenSongPath = findViewById(R.id.chosenSongPath);
 
-        chosenSongPathScrollView = findViewById(R.id.chosenSongPathScrollView);
         refreshTextAnimation();
         chosenSongAlbumArt = findViewById(R.id.chosenSongAlbumArt);
         titleEditText = findViewById(R.id.titleEditText);
@@ -137,7 +142,6 @@ public class AddMusicActivity extends BaseActionBarActivity {
 
     }
 
-    @NonNull
     private void refreshTextAnimation() {
         int pathLength = chosenSongPath.getText().length();
         int duration = pathLength * 150;
@@ -159,7 +163,10 @@ public class AddMusicActivity extends BaseActionBarActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mediaPlayer.release();
+        if (mediaPlayer != null) {
+            mediaPlayer.release();
+            mediaPlayer = null;
+        }
     }
 
     public void checkBoxClicked(View view) {
@@ -207,6 +214,7 @@ public class AddMusicActivity extends BaseActionBarActivity {
         openDocumentLauncher.launch(new String[]{"audio/*"});
     }
 
+    @SuppressLint("DefaultLocale")
     private void updateSelected(Uri uri) {
         music = new Music();
         selectedSongUri = uri;
@@ -219,25 +227,26 @@ public class AddMusicActivity extends BaseActionBarActivity {
         music.setTitle(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
         music.setArtist(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) != null ? retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) : retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST));
         music.setAlbum(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM));
-        byte[] albumArt = retriever.getEmbeddedPicture();
+        byte[] albumArtBytes = retriever.getEmbeddedPicture();
+        music.setAlbumArtBytes(albumArtBytes);
         try {
             retriever.close();
         } catch (IOException e) {
             Log.e(TAG, "updateSelected: ", e);
         }
-        if (albumArt != null) {
-            Bitmap bitmap = Bitmap.createScaledBitmap(BitmapFactory.decodeByteArray(albumArt, 0, albumArt.length), 128, 128, false);
-            music.setAlbumArt(bitmap);
-            chosenSongAlbumArt.setImageBitmap(bitmap);
+        if (albumArtBytes != null) {
+            chosenSongAlbumArt.setImageBitmap(Bitmap.createScaledBitmap(BitmapFactory.decodeByteArray(albumArtBytes, 0, albumArtBytes.length), 128, 128, false));
         } else {
-            music.setAlbumArt(BitmapFactory.decodeResource(getResources(), R.drawable.baseline_album_64));
             chosenSongAlbumArt.setImageResource(R.drawable.baseline_album_64);
         }
+
         chosenSongPath.setText(getFileName(selectedSongUri));
         titleEditText.setText(music.getTitle());
         artistEditText.setText(music.getArtist());
         albumEditText.setText(music.getAlbum());
-        refreshTextAnimation();
+        total = mediaPlayer.getDuration();
+        seekBar.setMax(total);
+        totalLength.setText(String.format("%02d:%02d", total / 60000, (total % 60000) / 1000));
         updateSeekBar.run();
     }
 
@@ -269,17 +278,11 @@ public class AddMusicActivity extends BaseActionBarActivity {
         public void run() {
             if (mediaPlayer != null) {
                 int current = mediaPlayer.getCurrentPosition();
-                int total = mediaPlayer.getDuration();
-                totalLength.setText(String.format("%02d:%02d", total / 60000, (total % 60000) / 1000));
                 currentPos.setText(String.format("%02d:%02d", current / 60000, (current % 60000) / 1000));
-                seekBar.setMax(total);
                 seekBar.setProgress(current, true);
                 seekBar.postDelayed(this, 100);
                 if (current + 1 >= total) {
-                    mediaPlayer.stop();
-                    mediaPlayer.release();
-                    mediaPlayer = MediaPlayer.create(AddMusicActivity.this, selectedSongUri);
-                    playPauseButton.setIcon(AppCompatResources.getDrawable(AddMusicActivity.this, R.drawable.baseline_play_arrow_64));
+                    stopSelectedSong(null);
                 }
             }
         }
@@ -329,31 +332,21 @@ public class AddMusicActivity extends BaseActionBarActivity {
         music.setLength(mediaPlayer.getDuration());
         Log.d(TAG, "startUpload: " + music);
 
-        FirebaseFirestore.getInstance().collection("music").add(music)
-                .addOnSuccessListener(documentReference -> {
-                    Log.d(TAG, "startUpload: " + documentReference.getId());
-                    storage.getReference().child("music").child(documentReference.getId()).putFile(selectedSongUri).addOnSuccessListener(taskSnapshot -> {
-                        Log.d(TAG, "startUpload: " + Objects.requireNonNull(taskSnapshot.getMetadata()).getPath());
-                    }).addOnFailureListener(e -> {
-                        Log.e(TAG, "startUpload: ", e);
-                        Toast.makeText(this, "Valami hiba történt :(", Toast.LENGTH_SHORT).show();
-                    });
-                    
-                    storage.getReference().child("albumArt").child(documentReference.getId()).putBytes(music._getAlbumArt())
-                            .addOnSuccessListener(taskSnapshot -> {
-                                Log.d(TAG, "startUpload: " + Objects.requireNonNull(taskSnapshot.getMetadata()).getPath());
-                            })
-                            .addOnFailureListener(e -> {
-                        Log.e(TAG, "startUpload: ", e);
-                        Toast.makeText(this, "Valami hiba történt :(", Toast.LENGTH_SHORT).show();
-                    });
 
-                    Toast.makeText(this, "Sikeres feltöltés!", Toast.LENGTH_SHORT).show();
+        FirebaseFirestore.getInstance().collection("/music").add(music)
+                .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "Sikeres dokumentum feltöltés: " + documentReference.getId());
+                    UploadTask uploadMusicTask = storage.getReference().child("/music").child(documentReference.getId()).putFile(selectedSongUri);
+                    UploadTask uploadAlbumArtTask = storage.getReference().child("/albumArt").child(documentReference.getId()).putBytes(music.getAlbumArtBytes());
+
+                    Tasks.whenAllSuccess(uploadMusicTask, uploadAlbumArtTask).addOnSuccessListener(list -> {
+                        Log.d(TAG, "Sikeres zenefeltöltés és albumkép feltöltés");
+                        Toast.makeText(this, "Sikeres feltöltés!", Toast.LENGTH_SHORT).show();
+                        finish();
+                    }).addOnFailureListener(e -> Log.e(TAG, "Hiba történt zenefeltöltés vagy albumkép feltöltése közben: ", e));
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "startUpload: ", e);
-                    Toast.makeText(this, "Valami hiba történt :(", Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Hiba történt dokumentum feltöltés közben:: ", e);
                 });
-
     }
 }

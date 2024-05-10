@@ -1,5 +1,7 @@
 package hu.szte.gergusz.musicshare.model;
 
+import com.google.firebase.firestore.Exclude;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,9 +14,8 @@ import lombok.ToString;
 @NoArgsConstructor
 @ToString
 public class UserData {
+
+    private String username;
     private boolean listener;
 
-    public boolean _isMusician() {
-        return !listener;
-    }
 }

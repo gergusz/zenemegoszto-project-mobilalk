@@ -5,7 +5,7 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".activity.AddMusicActivity">
+    tools:context=".activity.EditMusicActivity">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/my_toolbar"
@@ -21,47 +21,24 @@
 
     <ImageView
         android:id="@+id/chosenSongAlbumArt"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
         android:layout_marginTop="24dp"
         android:src="@drawable/baseline_library_music_64"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.05"
+        app:layout_constraintEnd_toStartOf="@+id/chooseButton"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/my_toolbar" />
-
-
-    <HorizontalScrollView
-        android:id="@+id/chosenSongPathScrollView"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_marginEnd="8dp"
-        android:scrollbars="none"
-        app:layout_constraintBottom_toBottomOf="@+id/chosenSongAlbumArt"
-        app:layout_constraintEnd_toStartOf="@+id/chooseButton"
-        app:layout_constraintStart_toEndOf="@+id/chosenSongAlbumArt"
-        app:layout_constraintTop_toTopOf="@+id/chosenSongAlbumArt">
-
-        <TextView
-            android:id="@+id/chosenSongPath"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/chooseSong"
-            android:textSize="16sp" />
-
-    </HorizontalScrollView>
 
 
     <Button
         android:id="@+id/chooseButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginEnd="24dp"
         android:onClick="onBrowse"
-        android:text="@string/chooseText"
+        android:text="@string/chooseAlbumArtText"
         app:layout_constraintBottom_toBottomOf="@+id/chosenSongAlbumArt"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/chosenSongPathScrollView"
         app:layout_constraintTop_toTopOf="@+id/chosenSongAlbumArt" />
 
     <Button
@@ -70,13 +47,13 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="32dp"
         android:layout_marginEnd="32dp"
-        android:text="@string/upload"
+        android:onClick="startUpload"
+        android:text="@string/modify"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/my_toolbar"
-        app:layout_constraintVertical_bias="0.95"
-        android:onClick="startUpload"/>
+        app:layout_constraintVertical_bias="0.95" />
 
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/textInputLayout2"
@@ -224,5 +201,15 @@
         app:layout_constraintEnd_toEndOf="@+id/textInputLayout4"
         app:layout_constraintTop_toBottomOf="@+id/textInputLayout4" />
 
+    <TextView
+        android:id="@+id/idTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/idString"
+        android:textColor="@android:color/darker_gray"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/uploadButton" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

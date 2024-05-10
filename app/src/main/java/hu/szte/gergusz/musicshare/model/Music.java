@@ -1,10 +1,11 @@
 package hu.szte.gergusz.musicshare.model;
 
-import android.graphics.Bitmap;
+import android.net.Uri;
 
-import java.io.ByteArrayOutputStream;
+import com.google.firebase.firestore.Exclude;
 
-import lombok.AccessLevel;
+import java.io.Serializable;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,19 +19,14 @@ import lombok.ToString;
 @ToString
 public class Music {
 
+    @Exclude @Getter(onMethod = @__({@Exclude})) private String firebaseId;
     private String title;
     private String artist;
     private String album;
-    @Getter(AccessLevel.NONE) private Bitmap albumArt;
+    @Exclude @Getter(onMethod = @__({@Exclude})) private byte[] albumArtBytes;
+    @Exclude @Getter(onMethod = @__({@Exclude})) private Uri albumArtUri;
     private String genre;
     private int length;
     private String uploaderId;
 
-    public byte[] _getAlbumArt() {
-        Bitmap bitmap = this.albumArt;
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
-        bitmap.recycle();
-        return stream.toByteArray();
-    }
 }
