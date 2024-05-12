@@ -141,66 +141,6 @@
     </com.google.android.material.textfield.TextInputLayout>
 
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/playPauseButton"
-        style="@style/Widget.Material3.Button.IconButton.Filled"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:layout_marginEnd="16dp"
-        android:onClick="playPauseSelectedSong"
-        android:padding="16dp"
-        app:icon="@drawable/baseline_play_arrow_64"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.25"
-        app:layout_constraintStart_toStartOf="@+id/seekBar"
-        app:layout_constraintTop_toBottomOf="@+id/seekBar" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/stopButton"
-        style="@style/Widget.Material3.Button.IconButton.Filled"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="12dp"
-        android:onClick="stopSelectedSong"
-        android:padding="16dp"
-        app:icon="@drawable/baseline_stop_64"
-        app:layout_constraintEnd_toEndOf="@+id/seekBar"
-        app:layout_constraintHorizontal_bias="0.75"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/seekBar" />
-
-    <SeekBar
-        android:id="@+id/seekBar"
-        android:layout_width="0dp"
-        android:layout_height="24dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginEnd="8dp"
-        app:layout_constraintEnd_toStartOf="@+id/totalSongLength"
-        app:layout_constraintStart_toEndOf="@+id/currentSongPosition"
-        app:layout_constraintTop_toTopOf="@+id/currentSongPosition" />
-
-    <TextView
-        android:id="@+id/currentSongPosition"
-        android:layout_width="wrap_content"
-        android:layout_height="24dp"
-        android:layout_marginTop="32dp"
-        android:gravity="center"
-        android:text="@string/startOfSong"
-        app:layout_constraintStart_toStartOf="@+id/textInputLayout4"
-        app:layout_constraintTop_toBottomOf="@+id/textInputLayout4" />
-
-    <TextView
-        android:id="@+id/totalSongLength"
-        android:layout_width="wrap_content"
-        android:layout_height="24dp"
-        android:layout_marginTop="32dp"
-        android:gravity="center"
-        android:text="@string/startOfSong"
-        app:layout_constraintEnd_toEndOf="@+id/textInputLayout4"
-        app:layout_constraintTop_toBottomOf="@+id/textInputLayout4" />
-
     <TextView
         android:id="@+id/idTextView"
         android:layout_width="wrap_content"

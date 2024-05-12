@@ -1,13 +1,17 @@
 package hu.szte.gergusz.musicshare.activity;
 
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.content.Intent;
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.InputType;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -15,14 +19,13 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
-import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.CollectionReference;
@@ -51,9 +54,11 @@ public class MusicShareActivity extends AppCompatActivity {
     private RecyclerView musicRecyclerView;
     private ArrayList<Music> musicItemsData;
     private MusicAdapter musicAdapter;
-
+    private SwipeRefreshLayout swipeRefreshLayout;
     private boolean backPressed = false;
+    private String lastSearchText = "";
 
+    private int limit = 10;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -74,6 +79,7 @@ public class MusicShareActivity extends AppCompatActivity {
         storage = FirebaseStorage.getInstance();
         db = FirebaseFirestore.getInstance();
 
+        swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
 
         musicCollection = db.collection("music");
 
@@ -83,8 +89,48 @@ public class MusicShareActivity extends AppCompatActivity {
 
         musicItemsData = new ArrayList<>();
 
+        musicAdapter = new MusicAdapter(this, musicItemsData);
+
+        musicRecyclerView.setAdapter(musicAdapter);
+
+        swipeRefreshLayout.setOnRefreshListener(this::refreshItems);
+
+        musicCollection.addSnapshotListener((value, error) -> {
+            if (error != null) {
+                Log.w("MusicShareActivity", "Listen failed.", error);
+                return;
+            }
+            if (value != null){
+                swipeRefreshLayout.setRefreshing(true);
+                refreshItems();
+            }
+        });
+
+        musicRecyclerView.post(() -> {
+            View item = LayoutInflater.from(this).inflate(R.layout.music_item, musicRecyclerView, false);
+            item.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+            int itemHeight = item.getMeasuredHeight();
+
+            int recyclerViewHeight = musicRecyclerView.getHeight();
+
+            limit = recyclerViewHeight / itemHeight;
+
+        });
+        musicRecyclerView.setHasFixedSize(true);
+
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        swipeRefreshLayout.setRefreshing(true);
+        refreshItems();
+    }
+
+    public void refreshItems() {
         musicCollection.get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
+                ArrayList<Music> newMusicItemsData = new ArrayList<>();
                 for (DocumentSnapshot document : Objects.requireNonNull(task.getResult())) {
                     Music music = document.toObject(Music.class);
                     assert music != null;
@@ -93,23 +139,29 @@ public class MusicShareActivity extends AppCompatActivity {
                     StorageReference albumArtRef = storage.getReference().child("albumArt/" + document.getId());
                     albumArtRef.getDownloadUrl().addOnSuccessListener(uri -> {
                         music.setAlbumArtUri(uri);
-                        musicAdapter.notifyItemChanged(musicItemsData.indexOf(music));
+                        int index = newMusicItemsData.indexOf(music);
+                        if (index != -1) {
+                            newMusicItemsData.set(index, music);
+                            musicAdapter.notifyItemChanged(index);
+                        }
                     }).addOnFailureListener(e -> {
                         Log.e("MusicShareActivity", "Error getting album art uri", e);
                     });
 
-                    musicItemsData.add(music);
-                    musicAdapter.notifyItemInserted(musicItemsData.size() - 1);
+                    newMusicItemsData.add(music);
                 }
+                musicItemsData = newMusicItemsData;
+                musicAdapter = new MusicAdapter(this, musicItemsData);
+                if (!lastSearchText.isEmpty()) {
+                    musicAdapter.getFilter().filter(lastSearchText);
+                }
+                musicRecyclerView.setAdapter(musicAdapter);
+                swipeRefreshLayout.setRefreshing(false);
+
             } else {
                 Log.d("MusicShareActivity", "Error getting documents: ", task.getException());
             }
         });
-
-        musicAdapter = new MusicAdapter(this, musicItemsData);
-
-        musicRecyclerView.setAdapter(musicAdapter);
-
     }
 
     public void showMusicInfo(@NonNull Music music) {
@@ -150,7 +202,29 @@ public class MusicShareActivity extends AppCompatActivity {
             auth.signOut();
             finish();
             return true;
+        } else if (item.getItemId() == R.id.search) {
+            MaterialAlertDialogBuilder builder = getBuilder();
+            builder.show();
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @NonNull
+    private MaterialAlertDialogBuilder getBuilder() {
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
+        builder.setTitle("Keresés címre vagy előadóra:");
+
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        input.setText(lastSearchText);
+        builder.setView(input);
+
+        builder.setPositiveButton("OK", (dialog, which) -> {
+            String searchText = input.getText().toString();
+            lastSearchText = searchText;
+            musicAdapter.getFilter().filter(searchText);
+        });
+        builder.setNegativeButton("Mégse", (dialog, which) -> dialog.cancel());
+        return builder;
     }
 }

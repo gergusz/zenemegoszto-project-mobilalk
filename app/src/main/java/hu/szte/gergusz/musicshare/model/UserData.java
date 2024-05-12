@@ -16,6 +16,4 @@ import lombok.ToString;
 public class UserData {
 
     private String username;
-    private boolean listener;
-
 }

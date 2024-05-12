@@ -30,8 +30,6 @@ public class RegisterActivity extends AppCompatActivity {
     private TextView email;
     private TextView password;
     private TextView passwordAgain;
-
-    private RadioGroup radioGroup;
     private FirebaseAuth auth;
     private FirebaseFirestore firestore;
     private CollectionReference userDataCollection;
@@ -58,7 +56,6 @@ public class RegisterActivity extends AppCompatActivity {
         firestore = FirebaseFirestore.getInstance();
         userDataCollection = firestore.collection("userData");
 
-        radioGroup = findViewById(R.id.radioGroup);
         username = findViewById(R.id.usernameEditText);
         email = findViewById(R.id.emailEditText);
         password = findViewById(R.id.passwordEditText);
@@ -70,7 +67,6 @@ public class RegisterActivity extends AppCompatActivity {
         String email = this.email.getText().toString();
         String password = this.password.getText().toString();
         String passwordAgain = this.passwordAgain.getText().toString();
-        boolean listener = radioGroup.getCheckedRadioButtonId() == R.id.hallgatoRadioButton;
 
         if (username.isEmpty() || email.isEmpty() || password.isEmpty() || passwordAgain.isEmpty()) {
             Toast.makeText(this, "Minden mezőt ki kell tölteni!", Toast.LENGTH_LONG).show();
@@ -86,7 +82,7 @@ public class RegisterActivity extends AppCompatActivity {
             if (task.isSuccessful()) {
                 Log.d(LOG_TAG, "createUserWithEmail:success");
                 Objects.requireNonNull(auth.getCurrentUser()).updateProfile(new UserProfileChangeRequest.Builder().setDisplayName(username).build());
-                userDataCollection.document(auth.getCurrentUser().getUid()).set(new UserData(username, listener));
+                userDataCollection.document(auth.getCurrentUser().getUid()).set(new UserData(username));
                 finish();
             } else {
                 Log.d(LOG_TAG, "createUserWithEmail:failure", task.getException());

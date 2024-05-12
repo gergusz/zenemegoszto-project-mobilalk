@@ -8,22 +8,19 @@
     android:layout_marginTop="4dp"
     android:layout_marginStart="4dp"
     android:layout_marginEnd="4dp"
-    android:layout_alignParentBottom="true" >
+    android:layout_alignParentBottom="true"
+    >
 
     <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:id="@+id/songCard">
 
         <ImageView
             android:id="@+id/albumArtImage"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:maxWidth="64dp"
-            android:maxHeight="64dp"
-            android:minWidth="64dp"
-            android:minHeight="64dp"
-            android:scaleType="fitXY"
-            />
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:scaleType="fitXY" />
 
         <TextView
             android:id="@+id/songTitle"
@@ -34,7 +31,9 @@
             android:layout_toEndOf="@id/albumArtImage"
             android:maxLength="80"
             android:maxLines="1"
-            android:text="@string/song_title" />
+            android:text="@string/song_title"
+            android:textColor="@color/white"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/songArtist"
@@ -46,7 +45,9 @@
             android:layout_toEndOf="@id/albumArtImage"
             android:maxLength="80"
             android:maxLines="1"
-            android:text="@string/song_artist" />
+            android:text="@string/song_artist"
+            android:textColor="@color/white"
+            android:textStyle="italic" />
 
         <TextView
             android:id="@+id/songDuration"
@@ -55,6 +56,7 @@
             android:layout_alignParentEnd="true"
             android:layout_marginTop="24dp"
             android:layout_marginEnd="10dp"
+            android:textColor="@color/white"
             android:text="@string/song_duration" />
 
 

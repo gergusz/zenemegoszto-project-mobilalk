@@ -6,7 +6,13 @@
         android:id="@+id/musicUpload"
         android:icon="@drawable/baseline_add_64"
         android:title="@string/musicUpload"
-        app:showAsAction="always" />
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/search"
+        android:icon="@drawable/baseline_search_64"
+        android:title="@string/search"
+        app:showAsAction="ifRoom" />
 
     <item
         android:id="@+id/logout"

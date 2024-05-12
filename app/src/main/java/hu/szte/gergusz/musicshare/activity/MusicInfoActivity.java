@@ -1,15 +1,21 @@
 package hu.szte.gergusz.musicshare.activity;
 
 import android.annotation.SuppressLint;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
-import android.media.MediaPlayer;
+import android.content.ServiceConnection;
+
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -39,18 +45,22 @@ import com.google.gson.GsonBuilder;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import hu.szte.gergusz.musicshare.R;
 import hu.szte.gergusz.musicshare.adapter.UriTypeAdapter;
 import hu.szte.gergusz.musicshare.model.Music;
 import hu.szte.gergusz.musicshare.model.UserData;
+import hu.szte.gergusz.musicshare.services.MusicNotificationManager;
+import hu.szte.gergusz.musicshare.services.MusicService;
 
 public class MusicInfoActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
     private FirebaseUser user;
     private Music music;
-    private MediaPlayer mediaPlayer;
     private ImageView albumArt;
     private TextView title;
     private TextView artist;
@@ -66,6 +76,9 @@ public class MusicInfoActivity extends AppCompatActivity {
     private FirebaseStorage storage;
     private Uri musicUri;
     private int total;
+    private MusicService musicService;
+    private boolean isBound = false;
+    private MusicNotificationManager musicNotificationManager;
 
 
     @SuppressLint("DefaultLocale")
@@ -83,18 +96,22 @@ public class MusicInfoActivity extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         user = auth.getCurrentUser();
 
+        musicNotificationManager = new MusicNotificationManager(this);
+
         MaterialToolbar myToolbar = findViewById(R.id.my_toolbar);
         setSupportActionBar(myToolbar);
         Objects.requireNonNull(getSupportActionBar()).setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setHomeAsUpIndicator(R.drawable.baseline_arrow_back_64);
         myToolbar.setNavigationOnClickListener(v -> finish());
 
-
         Gson gson = new GsonBuilder().registerTypeAdapter(Uri.class, new UriTypeAdapter()).create();
 
         music = gson.fromJson(Objects.requireNonNull(getIntent().getStringExtra("music")), Music.class);
 
         getSupportActionBar().setTitle(music.getTitle());
+
+        Intent intent = new Intent(this, MusicService.class);
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
 
         albumArt = findViewById(R.id.albumArt);
         title = findViewById(R.id.infoTitle);
@@ -106,6 +123,7 @@ public class MusicInfoActivity extends AppCompatActivity {
         seekBar = findViewById(R.id.seekBar);
         currentPos = findViewById(R.id.currentSongPosition);
         totalLength = findViewById(R.id.totalSongLength);
+        uploader.setEnabled(false);
 
         Glide.with(this).load(music.getAlbumArtUri()).into(albumArt);
 
@@ -120,18 +138,28 @@ public class MusicInfoActivity extends AppCompatActivity {
 
         firestore = FirebaseFirestore.getInstance();
         userDataCollection = firestore.collection("userData");
-
-        userDataCollection.document(music.getUploaderId()).get().addOnSuccessListener(documentSnapshot -> {
-            String text = getString(R.string.uploadedBy, Objects.requireNonNull(documentSnapshot.get("username")));
-            uploader.setText(text);
-        });
-
         storage = FirebaseStorage.getInstance();
 
-        storage.getReference("music/" + music.getFirebaseId()).getDownloadUrl().addOnSuccessListener(uri -> {
-            musicUri = uri;
-            mediaPlayer = MediaPlayer.create(this, musicUri);
+        ProgressBar progressBar = findViewById(R.id.progressBar);
+
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+        executorService.execute(() -> {
+            runOnUiThread(() -> {
+                progressBar.setVisibility(View.VISIBLE);
+                uploader.setVisibility(View.GONE);
+            });
+
+            userDataCollection.document(music.getUploaderId()).get().addOnSuccessListener(documentSnapshot -> {
+                String text = getString(R.string.uploadedBy, Objects.requireNonNull(documentSnapshot.get("username")));
+                runOnUiThread(() -> {
+                    progressBar.setVisibility(View.GONE);
+                    uploader.setVisibility(View.VISIBLE);
+                    uploader.setText(text);
+                });
+            });
         });
+
 
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @SuppressLint("DefaultLocale")
@@ -147,57 +175,78 @@ public class MusicInfoActivity extends AppCompatActivity {
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-                mediaPlayer.seekTo(seekBar.getProgress());
-                seekBar.postDelayed(updateSeekBar, 100);
+                if(isBound){
+                    musicService.seekTo(seekBar.getProgress());
+                    seekBar.postDelayed(updateSeekBar, 100);
+                }
             }
         });
 
     }
 
+    private final ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            MusicService.MusicBinder binder = (MusicService.MusicBinder) service;
+            musicService = binder.getService();
+            isBound = true;
+            storage.getReference("music/" + music.getFirebaseId()).getDownloadUrl().addOnSuccessListener(uri -> {
+                musicUri = uri;
+                musicService.create(musicUri);
+            });
+
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            isBound = false;
+        }
+    };
+
     private final Runnable updateSeekBar = new Runnable() {
         @SuppressLint("DefaultLocale")
         @Override
         public void run() {
-            if (mediaPlayer != null) {
-                int current = mediaPlayer.getCurrentPosition();
+            if(isBound){
+                int current = musicService.getCurrentPosition();
                 currentPos.setText(String.format("%02d:%02d", current / 60000, (current % 60000) / 1000));
                 seekBar.setProgress(current, true);
                 seekBar.postDelayed(this, 100);
-                if (current + 1 >= total) {
-                    stopSelectedSong(null);
+                if (!musicService.isPlaying()) {
+                    playPauseButton.setIcon(AppCompatResources.getDrawable(MusicInfoActivity.this, R.drawable.baseline_play_arrow_64));
                 }
             }
         }
     };
 
     public void playPauseSelectedSong(View view) {
-        if (mediaPlayer != null) {
-            if (mediaPlayer.isPlaying()) {
+        if(isBound){
+            if (musicService.isPlaying()) {
                 playPauseButton.setIcon(AppCompatResources.getDrawable(this, R.drawable.baseline_play_arrow_64));
-                mediaPlayer.pause();
+                musicService.pause();
             } else {
                 updateSeekBar.run();
                 playPauseButton.setIcon(AppCompatResources.getDrawable(this, R.drawable.baseline_pause_64));
-                mediaPlayer.start();
+                musicService.start();
+                musicNotificationManager.showNotification(music);
             }
         }
     }
 
     public void stopSelectedSong(View view) {
-        if (mediaPlayer != null) {
-            mediaPlayer.stop();
-            mediaPlayer.release();
-            mediaPlayer = MediaPlayer.create(this, musicUri);
+        if(isBound){
+            musicService.stop();
+            musicService.create(musicUri);
             playPauseButton.setIcon(AppCompatResources.getDrawable(this, R.drawable.baseline_play_arrow_64));
         }
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (mediaPlayer != null) {
-            mediaPlayer.release();
-            mediaPlayer = null;
+    protected void onStop() {
+        super.onStop();
+        if (isBound) {
+            unbindService(serviceConnection);
+            isBound = false;
         }
     }
 
@@ -227,5 +276,15 @@ public class MusicInfoActivity extends AppCompatActivity {
             });
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (isBound) {
+            unbindService(serviceConnection);
+            isBound = false;
+        }
+        musicNotificationManager.getNotificationManager().cancelAll();
     }
 }

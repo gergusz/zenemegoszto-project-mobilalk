@@ -33,5 +33,6 @@
     <string name="chooseAlbumArtText">Albumkép cseréje...</string>
     <string name="modify">Frissítés</string>
     <string name="idString">ID: %1$s</string>
+    <string name="search">Keresés</string>
 
 </resources>

@@ -3,9 +3,14 @@ package hu.szte.gergusz.musicshare.activity;
 import static androidx.core.content.PermissionChecker.PERMISSION_GRANTED;
 
 import android.annotation.SuppressLint;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -51,13 +56,13 @@ import java.util.Objects;
 import hu.szte.gergusz.musicshare.R;
 import hu.szte.gergusz.musicshare.adapter.UriTypeAdapter;
 import hu.szte.gergusz.musicshare.model.Music;
+import hu.szte.gergusz.musicshare.services.MusicService;
 
 public class EditMusicActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
     private FirebaseUser user;
     private FirebaseStorage storage;
-
     private FirebaseFirestore db;
     private Music music;
     private ImageView albumArt;
@@ -66,17 +71,10 @@ public class EditMusicActivity extends AppCompatActivity {
     private CheckBox artistSameAsUploader;
     private TextInputEditText albumEditText;
     private AutoCompleteTextView genreAutoComplete;
-    private MediaPlayer mediaPlayer;
-    private MaterialButton playPauseButton;
-    private TextView currentPos;
     private Uri musicUri;
-    private TextView totalLength;
-    private SeekBar seekBar;
-    private int total;
 
     private List<String> genres;
     private boolean albumArtChanged = false;
-
     private TextView idTextView;
 
     @SuppressLint("DefaultLocale")
@@ -117,49 +115,19 @@ public class EditMusicActivity extends AppCompatActivity {
         artistSameAsUploader = findViewById(R.id.artistSameAsUploader);
         albumEditText = findViewById(R.id.albumEditText);
         genreAutoComplete = findViewById(R.id.genreAutoComplete);
-        playPauseButton = findViewById(R.id.playPauseButton);
-        currentPos = findViewById(R.id.currentSongPosition);
-        totalLength = findViewById(R.id.totalSongLength);
-        seekBar = findViewById(R.id.seekBar);
         idTextView = findViewById(R.id.idTextView);
         genres = Arrays.asList(getResources().getStringArray(R.array.music_genres));
 
         titleEditText.setText(music.getTitle());
         artistEditText.setText(music.getArtist());
         albumEditText.setText(music.getAlbum());
-        total = music.getLength();
-        totalLength.setText(String.format("%02d:%02d", total / 60000, (total % 60000) / 1000));
         idTextView.setText(getString(R.string.idString, music.getFirebaseId()));
 
         Glide.with(this).load(music.getAlbumArtUri()).fitCenter().into(albumArt);
 
-        storage.getReference("music/" + music.getFirebaseId()).getDownloadUrl().addOnSuccessListener(uri -> {
-            musicUri = uri;
-            mediaPlayer = MediaPlayer.create(this, musicUri);
-        });
-
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.dropdown_menu_popup_item, genres);
         genreAutoComplete.setAdapter(adapter);
         genreAutoComplete.setText(music.getGenre());
-
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @SuppressLint("DefaultLocale")
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                currentPos.setText(String.format("%02d:%02d", progress / 60000, (progress % 60000) / 1000));
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-                seekBar.removeCallbacks(updateSeekBar);
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                mediaPlayer.seekTo(seekBar.getProgress());
-                seekBar.postDelayed(updateSeekBar, 100);
-            }
-        });
     }
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
@@ -198,30 +166,6 @@ public class EditMusicActivity extends AppCompatActivity {
         openDocumentLauncher.launch(new String[]{"image/*"});
     }
 
-    private final Runnable updateSeekBar = new Runnable() {
-        @SuppressLint("DefaultLocale")
-        @Override
-        public void run() {
-            if (mediaPlayer != null) {
-                int current = mediaPlayer.getCurrentPosition();
-                currentPos.setText(String.format("%02d:%02d", current / 60000, (current % 60000) / 1000));
-                seekBar.setProgress(current, true);
-                seekBar.postDelayed(this, 100);
-                if (current + 1 >= total) {
-                    stopSelectedSong(null);
-                }
-            }
-        }
-    };
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (mediaPlayer != null) {
-            mediaPlayer.release();
-            mediaPlayer = null;
-        }
-    }
 
     public void checkBoxClicked(View view) {
         if (artistSameAsUploader.isChecked()) {
@@ -233,27 +177,6 @@ public class EditMusicActivity extends AppCompatActivity {
         }
     }
 
-    public void playPauseSelectedSong(View view) {
-        if (mediaPlayer != null) {
-            if (mediaPlayer.isPlaying()) {
-                playPauseButton.setIcon(AppCompatResources.getDrawable(this, R.drawable.baseline_play_arrow_64));
-                mediaPlayer.pause();
-            } else {
-                updateSeekBar.run();
-                playPauseButton.setIcon(AppCompatResources.getDrawable(this, R.drawable.baseline_pause_64));
-                mediaPlayer.start();
-            }
-        }
-    }
-
-    public void stopSelectedSong(View view) {
-        if (mediaPlayer != null) {
-            mediaPlayer.stop();
-            mediaPlayer.release();
-            mediaPlayer = MediaPlayer.create(this, musicUri);
-            playPauseButton.setIcon(AppCompatResources.getDrawable(this, R.drawable.baseline_play_arrow_64));
-        }
-    }
 
     public void startUpload(View view) {
         Map<String, Object> updatedValues = new HashMap<>();

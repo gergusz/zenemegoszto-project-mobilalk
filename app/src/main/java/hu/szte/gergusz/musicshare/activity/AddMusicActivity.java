@@ -3,6 +3,9 @@ package hu.szte.gergusz.musicshare.activity;
 import static androidx.core.content.PermissionChecker.PERMISSION_GRANTED;
 
 import android.annotation.SuppressLint;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -10,6 +13,7 @@ import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
@@ -45,6 +49,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.UploadTask;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -52,6 +57,7 @@ import java.util.Objects;
 
 import hu.szte.gergusz.musicshare.R;
 import hu.szte.gergusz.musicshare.model.Music;
+import hu.szte.gergusz.musicshare.services.MusicService;
 
 public class AddMusicActivity extends AppCompatActivity {
     private static final String TAG = "AddMusicActivity";
@@ -65,7 +71,6 @@ public class AddMusicActivity extends AppCompatActivity {
     private CheckBox artistSameAsUploader;
     private TextInputEditText albumEditText;
     private AutoCompleteTextView genreAutoComplete;
-    private MediaPlayer mediaPlayer;
     private Uri selectedSongUri;
     private MaterialButton playPauseButton;
     private TextView currentPos;
@@ -74,6 +79,8 @@ public class AddMusicActivity extends AppCompatActivity {
     private List<String> genres;
     private Music music;
     private int total;
+    private MusicService musicService;
+    private boolean isBound = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -135,12 +142,35 @@ public class AddMusicActivity extends AppCompatActivity {
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-                mediaPlayer.seekTo(seekBar.getProgress());
-                seekBar.postDelayed(updateSeekBar, 100);
+                if(isBound){
+                    musicService.seekTo(seekBar.getProgress());
+                    seekBar.postDelayed(updateSeekBar, 100);
+                }
             }
         });
 
     }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Intent intent = new Intent(this, MusicService.class);
+        bindService(intent, serviceConnection, BIND_AUTO_CREATE);
+    }
+
+    private final ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            MusicService.MusicBinder binder = (MusicService.MusicBinder) service;
+            musicService = binder.getService();
+            isBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            isBound = false;
+        }
+    };
 
     private void refreshTextAnimation() {
         int pathLength = chosenSongPath.getText().length();
@@ -163,9 +193,9 @@ public class AddMusicActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (mediaPlayer != null) {
-            mediaPlayer.release();
-            mediaPlayer = null;
+        if (isBound){
+            unbindService(serviceConnection);
+            isBound = false;
         }
     }
 
@@ -196,6 +226,7 @@ public class AddMusicActivity extends AppCompatActivity {
     private final ActivityResultLauncher<String[]> openDocumentLauncher =
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
                 if (uri != null) {
+                    musicService.create(uri);
                     updateSelected(uri);
                 } else {
                     Toast.makeText(this, "Nem válaszottál ki fájlt!", Toast.LENGTH_SHORT).show();
@@ -218,56 +249,58 @@ public class AddMusicActivity extends AppCompatActivity {
     private void updateSelected(Uri uri) {
         music = new Music();
         selectedSongUri = uri;
-        if (mediaPlayer != null) {
-            mediaPlayer.release();
-        }
-        mediaPlayer = MediaPlayer.create(this, selectedSongUri);
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         retriever.setDataSource(this, selectedSongUri);
         music.setTitle(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
         music.setArtist(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) != null ? retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) : retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST));
         music.setAlbum(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM));
         byte[] albumArtBytes = retriever.getEmbeddedPicture();
-        music.setAlbumArtBytes(albumArtBytes);
         try {
             retriever.close();
         } catch (IOException e) {
             Log.e(TAG, "updateSelected: ", e);
         }
         if (albumArtBytes != null) {
-            chosenSongAlbumArt.setImageBitmap(Bitmap.createScaledBitmap(BitmapFactory.decodeByteArray(albumArtBytes, 0, albumArtBytes.length), 128, 128, false));
+            Bitmap originalBitmap = BitmapFactory.decodeByteArray(albumArtBytes, 0, albumArtBytes.length);
+            Bitmap scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, 128, 128, false);
+            chosenSongAlbumArt.setImageBitmap(originalBitmap);
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            scaledBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+            music.setAlbumArtBytes(stream.toByteArray());
         } else {
             chosenSongAlbumArt.setImageResource(R.drawable.baseline_album_64);
+            Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.baseline_album_64);
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+            music.setAlbumArtBytes(stream.toByteArray());
         }
 
         chosenSongPath.setText(getFileName(selectedSongUri));
         titleEditText.setText(music.getTitle());
         artistEditText.setText(music.getArtist());
         albumEditText.setText(music.getAlbum());
-        total = mediaPlayer.getDuration();
+        total = musicService.getDuration();
         seekBar.setMax(total);
         totalLength.setText(String.format("%02d:%02d", total / 60000, (total % 60000) / 1000));
         updateSeekBar.run();
     }
 
     public void playPauseSelectedSong(View view) {
-        if (mediaPlayer != null) {
-            if (mediaPlayer.isPlaying()) {
+        if (isBound && selectedSongUri != null) {
+            if (musicService.isPlaying()) {
                 playPauseButton.setIcon(AppCompatResources.getDrawable(this, R.drawable.baseline_play_arrow_64));
-                mediaPlayer.pause();
+                musicService.pause();
             } else {
+                musicService.start();
                 updateSeekBar.run();
                 playPauseButton.setIcon(AppCompatResources.getDrawable(this, R.drawable.baseline_pause_64));
-                mediaPlayer.start();
             }
         }
     }
 
     public void stopSelectedSong(View view) {
-        if (mediaPlayer != null) {
-            mediaPlayer.stop();
-            mediaPlayer.release();
-            mediaPlayer = MediaPlayer.create(this, selectedSongUri);
+        if (isBound) {
+            musicService.stop();
             playPauseButton.setIcon(AppCompatResources.getDrawable(this, R.drawable.baseline_play_arrow_64));
         }
     }
@@ -276,15 +309,13 @@ public class AddMusicActivity extends AppCompatActivity {
         @SuppressLint("DefaultLocale")
         @Override
         public void run() {
-            if (mediaPlayer != null) {
-                int current = mediaPlayer.getCurrentPosition();
+                int current = musicService.getCurrentPosition();
                 currentPos.setText(String.format("%02d:%02d", current / 60000, (current % 60000) / 1000));
                 seekBar.setProgress(current, true);
                 seekBar.postDelayed(this, 100);
-                if (current + 1 >= total) {
-                    stopSelectedSong(null);
+                if (!musicService.isPlaying()) {
+                    playPauseButton.setIcon(AppCompatResources.getDrawable(AddMusicActivity.this, R.drawable.baseline_play_arrow_64));
                 }
-            }
         }
     };
 
@@ -329,7 +360,7 @@ public class AddMusicActivity extends AppCompatActivity {
         music.setAlbum(Objects.requireNonNull(albumEditText.getText()).toString());
         music.setGenre(Objects.requireNonNull(genreAutoComplete.getText()).toString());
         music.setUploaderId(Objects.requireNonNull(auth.getCurrentUser()).getUid());
-        music.setLength(mediaPlayer.getDuration());
+        music.setLength(musicService.getDuration());
         Log.d(TAG, "startUpload: " + music);
 
 
@@ -337,6 +368,7 @@ public class AddMusicActivity extends AppCompatActivity {
                 .addOnSuccessListener(documentReference -> {
                     Log.d(TAG, "Sikeres dokumentum feltöltés: " + documentReference.getId());
                     UploadTask uploadMusicTask = storage.getReference().child("/music").child(documentReference.getId()).putFile(selectedSongUri);
+                    Log.d(TAG, "startUpload: selectedSongUri: "+ selectedSongUri);
                     UploadTask uploadAlbumArtTask = storage.getReference().child("/albumArt").child(documentReference.getId()).putBytes(music.getAlbumArtBytes());
 
                     Tasks.whenAllSuccess(uploadMusicTask, uploadAlbumArtTask).addOnSuccessListener(list -> {

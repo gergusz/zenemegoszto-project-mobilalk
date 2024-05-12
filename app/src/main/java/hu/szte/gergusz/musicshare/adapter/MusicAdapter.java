@@ -2,7 +2,9 @@ package hu.szte.gergusz.musicshare.adapter;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,10 +16,13 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.palette.graphics.Palette;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
 import com.google.android.material.color.utilities.CorePalette;
 
 import java.lang.reflect.Array;
@@ -67,20 +72,23 @@ public class MusicAdapter extends RecyclerView.Adapter<MusicAdapter.MusicViewHol
         return new Filter() {
             @Override
             protected FilterResults performFiltering(CharSequence constraint) {
-                String searchString = constraint.toString();
-                if (searchString.isEmpty()) {
-                    filteredMusicList = musicList;
+                FilterResults filterResults = new FilterResults();
+                ArrayList<Music> filteredList = new ArrayList<>();
+                if (constraint == null || constraint.length() == 0) {
+                    filterResults.count = musicList.size();
+                    filterResults.values = musicList;
                 } else {
-                    ArrayList<Music> temp = new ArrayList<>();
+                    String filterPattern = constraint.toString().toLowerCase().trim();
                     for (Music music : musicList) {
-                        if (music.getTitle().toLowerCase().contains(searchString.toLowerCase()) || music.getArtist().toLowerCase().contains(searchString.toLowerCase())) {
-                            temp.add(music);
+                        if (music.getTitle().toLowerCase().contains(filterPattern) || music.getArtist().toLowerCase().contains(filterPattern)) {
+                            filteredList.add(music);
                         }
                     }
-                    filteredMusicList = temp;
+
+                    filterResults.count = filteredList.size();
+                    filterResults.values = filteredList;
                 }
-                FilterResults filterResults = new FilterResults();
-                filterResults.values = filteredMusicList;
+
                 return filterResults;
             }
 
@@ -98,6 +106,7 @@ public class MusicAdapter extends RecyclerView.Adapter<MusicAdapter.MusicViewHol
         private final TextView songTitle;
         private final TextView songArtist;
         private final TextView songDuration;
+        private final View songCard;
 
         public MusicViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -106,6 +115,7 @@ public class MusicAdapter extends RecyclerView.Adapter<MusicAdapter.MusicViewHol
             songTitle = itemView.findViewById(R.id.songTitle);
             songArtist = itemView.findViewById(R.id.songArtist);
             songDuration = itemView.findViewById(R.id.songDuration);
+            songCard = itemView.findViewById(R.id.songCard);
 
         }
 
@@ -115,7 +125,25 @@ public class MusicAdapter extends RecyclerView.Adapter<MusicAdapter.MusicViewHol
             songArtist.setText(music.getArtist());
             songDuration.setText(String.format("%02d:%02d", music.getLength() / 60000, (music.getLength() % 60000) / 1000));
             if (music.getAlbumArtUri() != null) {
-                Glide.with(itemView.getContext()).load(music.getAlbumArtUri()).into(albumArt);
+                Glide.with(itemView.getContext())
+                        .asBitmap()
+                        .load(music.getAlbumArtUri())
+                        .into(new CustomTarget<Bitmap>() {
+                            @Override
+                            public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+                                albumArt.setImageBitmap(resource);
+                                Palette.from(resource).generate(palette -> {
+                                    int defaultValue = 0x000000;
+                                    int mutedColor = palette != null ? palette.getMutedColor(defaultValue) : defaultValue;
+                                    songCard.setBackgroundColor(mutedColor);
+                                });
+                            }
+
+                            @Override
+                            public void onLoadCleared(@Nullable Drawable placeholder) {
+                                albumArt.setImageDrawable(placeholder);
+                            }
+                        });
             } else {
                 albumArt.setImageResource(R.drawable.baseline_album_64);
             }
